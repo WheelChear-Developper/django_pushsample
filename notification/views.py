@@ -7,6 +7,48 @@ from .utils import send_notification, upload_certificate
 
 import json
 
+# 端末のUUID,DeviceTokenの登録更新
+@csrf_exempt
+def device_token_post(request):
+    # post以外は、使えないようにする
+    if request.method != 'POST':
+        return HttpResponse(status=405)
+
+    # パラメータチェック
+    if "device_token" in request.POST:
+        if "uuid" in request.POST:
+            # query_paramが指定されている場合の処理
+            device_token = request.POST.get("device_token")
+            uuid = request.POST.get("uuid")
+            print("\033[94m", "POST device_token = ", device_token, ",uuid = ", uuid, "\033[0m")
+        else:
+            # query_paramが指定されていない場合の処理
+            return JsonResponse({'error': 'Not uuid'}, status=400)
+    else:
+        # query_paramが指定されていない場合の処理
+        return JsonResponse({'error': 'Not device_token'}, status=400)
+
+    # 既存Devicetokenチェック
+    token_check = False
+    for token in DeviceToken.objects.all().order_by('id'):
+        if token.device_token == device_token:
+            token_check = True
+            break
+
+    if DeviceToken.objects.filter(uuid=uuid).count() != 0:
+        token = DeviceToken.objects.get(uuid=uuid)
+        token.device_token = device_token
+        token.save()
+    else:
+        token = DeviceToken()
+        token.device_token = device_token
+        token.uuid = uuid
+        token.save()
+
+    print("\033[94m", "SAVE user = ", token.user, ",device_token = ", token.device_token, ",uuid = ", token.uuid, "\033[0m")
+
+    return JsonResponse({'result': 'success'}, status=200)
+
 
 @csrf_exempt
 def device_token_receive(request):
