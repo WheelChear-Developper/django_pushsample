@@ -5,28 +5,47 @@ from .form import CertFileUploadForm
 from .models import DeviceToken
 from .utils import send_notification, upload_certificate
 
+import django.utils.timezone as timezone
 import json
 
-# 端末のUUID,DeviceTokenの登録更新
+# 端末のDeviceTokenの登録更新
 @csrf_exempt
 def device_token_post(request):
+
+    # API許可確キー
+    apikey = 'ABCDEF123456'
+
     # post以外は、使えないようにする
     if request.method != 'POST':
         return HttpResponse(status=405)
 
     # パラメータチェック
-    if "device_token" in request.POST:
-        if "uuid" in request.POST:
-            # query_paramが指定されている場合の処理
-            device_token = request.POST.get("device_token")
-            uuid = request.POST.get("uuid")
-            print("\033[94m", "POST device_token = ", device_token, ",uuid = ", uuid, "\033[0m")
+    if apikey == request.POST.get("apikey"):
+        if "device_token" in request.POST:
+            if "device_type" in request.POST:
+                if request.POST.get("device_type") == 'iOS':
+                    # query_paramが指定されている場合の処理
+                    device_token = request.POST.get("device_token")
+                    device_type = request.POST.get("device_type")
+                    print("\033[94m", "POST device_token = ", device_token, " device_type = ", device_type, "\033[0m")
+                else:
+                    if request.POST.get("device_type") == 'Android':
+                        # query_paramが指定されている場合の処理
+                        device_token = request.POST.get("device_token")
+                        device_type = request.POST.get("device_type")
+                        print("\033[94m", "POST device_token = ", device_token, " device_type = ", device_type, "\033[0m")
+                    else:
+                        # query_paramが指定されていない場合の処理
+                        return JsonResponse({'error': 'Not device_type'}, status=400)
+            else:
+                # query_paramが指定されていない場合の処理
+                return JsonResponse({'error': 'Not device_type'}, status=400)
         else:
             # query_paramが指定されていない場合の処理
-            return JsonResponse({'error': 'Not uuid'}, status=400)
+            return JsonResponse({'error': 'Not device_token'}, status=400)
     else:
         # query_paramが指定されていない場合の処理
-        return JsonResponse({'error': 'Not device_token'}, status=400)
+        return JsonResponse({'error': 'Not apikey'}, status=400)
 
     # 既存Devicetokenチェック
     token_check = False
@@ -35,49 +54,19 @@ def device_token_post(request):
             token_check = True
             break
 
-    if DeviceToken.objects.filter(uuid=uuid).count() != 0:
-        token = DeviceToken.objects.get(uuid=uuid)
-        token.device_token = device_token
+    if DeviceToken.objects.filter(device_token=device_token).count() != 0:
+        token = DeviceToken.objects.get(device_token=device_token)
+        token.device_type = device_type
+        token.updatetime = timezone.now()
         token.save()
     else:
         token = DeviceToken()
         token.device_token = device_token
-        token.uuid = uuid
+        token.device_type = device_type
+        token.setdatetime = token.updatetime
         token.save()
 
-    print("\033[94m", "SAVE user = ", token.user, ",device_token = ", token.device_token, ",uuid = ", token.uuid, "\033[0m")
-
-    return JsonResponse({'result': 'success'}, status=200)
-
-
-@csrf_exempt
-def device_token_receive(request):
-    if request.method != 'PUT':
-        return HttpResponse(status=405)
-
-    if request.body is b'':
-        return JsonResponse({'error': 'Bad Request'}, status=400)
-
-    query_dict = request.body.decode('utf-8')
-    body = json.loads(query_dict)
-
-    if 'device_token' not in body:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
-    if 'uuid' not in body:
-        return JsonResponse({'error': 'Bad Request'}, status=400)
-
-    device_token = body['device_token']
-    uuid = body['uuid']
-
-    if DeviceToken.objects.filter(uuid=uuid).count() != 0:
-        token = DeviceToken.objects.get(uuid=uuid)
-        token.device_token = device_token
-        token.save()
-    else:
-        token = DeviceToken()
-        token.device_token = device_token
-        token.uuid = uuid
-        token.save()
+    print("\033[94m", "SAVE user = ", token.user, ",device_token = ", token.device_token, "\033[0m")
 
     return JsonResponse({'result': 'success'}, status=200)
 
